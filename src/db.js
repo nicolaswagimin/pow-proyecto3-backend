@@ -15,7 +15,8 @@ pool.on('error', (err) => {
   console.error('Error inesperado en el pool de PostgreSQL:', err.message);
 });
 
-// Crea las tablas definidas en schema.sql si todavía no existen.
+// Crea las tablas definidas en schema.sql (usuarios e items) si todavía no existen,
+// y agrega a items la columna usuario_id en bases creadas antes de la autenticación.
 export async function iniciarDB() {
   if (!process.env.DATABASE_URL) {
     throw new Error('Falta la variable DATABASE_URL en el archivo .env');
