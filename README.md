@@ -1,131 +1,74 @@
-# Proyecto 3 · Backend
+# VoiceToWeb · Backend
 
-API base en **Node.js + Express** con **PostgreSQL** (Neon o Supabase) e **IA de Google Gemini** (API REST, sin SDK).
-Materia: Programación orientada a la web.
+API de **VoiceToWeb**, una herramienta de prototipado web por voz: la persona describe en voz alta la página que quiere, la IA genera el HTML y CSS y la muestra en vivo, y nuevas órdenes de voz la modifican.
 
-Frontend asociado: <https://github.com/nicolaswagimin/pow-proyecto3-frontend>
+Proyecto 3 de la materia Programación orientada a la web. Node.js + Express 5, PostgreSQL (Neon) y Google Gemini por su API REST.
+
+Frontend: <https://github.com/nicolaswagimin/pow-proyecto3-frontend>
+
+## Estado actual
+
+Funcionan el registro y el login con JWT, un CRUD de ejemplo (`items`) filtrado por usuario y una ruta de preguntas a Gemini. La función propia de VoiceToWeb todavía no está en la API: Gemini convertirá cada orden dictada en HTML y CSS, o en un cambio sobre la versión anterior. Ese es el siguiente paso (ver "Próximos pasos").
 
 ## Requisitos
 
 - Node.js 20 o superior
-- Una base de datos PostgreSQL (Neon o Supabase, plan gratuito)
+- Una base de datos PostgreSQL (Neon, plan gratuito)
 - Una API key de Gemini: <https://aistudio.google.com/apikey>
 
 ## Correr en local
 
 ```bash
 npm install
-cp .env.example .env     # y rellena DATABASE_URL, GEMINI_API_KEY y JWT_SECRET
-npm run dev              # se reinicia solo al guardar cambios
-```
-
-El servidor queda en <http://localhost:3003>. Prueba que responda:
-
-```bash
+cp .env.example .env     # rellena DATABASE_URL, GEMINI_API_KEY y JWT_SECRET
+npm run dev              # http://localhost:3003, se reinicia al guardar
 curl http://localhost:3003/api/health
 # {"ok":true,"db":true,"ia":true}
 ```
 
-Si `db` o `ia` salen en `false`, revisa `DATABASE_URL` / `DB_SSL` o `GEMINI_API_KEY` en el `.env`.
-Aunque falle la base de datos, el servidor arranca igual y muestra el error en la consola.
-
-Las tablas `usuarios` e `items` se crean solas al arrancar (a partir de `schema.sql`). También puedes pegar `schema.sql`
-en el editor SQL de Neon o Supabase.
-
-## Variables de entorno
-
-| Variable         | Descripción                                                        | Por defecto             |
-| ---------------- | ------------------------------------------------------------------ | ----------------------- |
-| `PORT`           | Puerto del servidor                                                | `3003`                  |
-| `DATABASE_URL`   | Cadena de conexión de PostgreSQL                                   | —                       |
-| `DB_SSL`         | `false` para desactivar SSL (PostgreSQL local)                     | SSL activado            |
-| `GEMINI_API_KEY` | API key de Gemini (solo vive en el backend)                        | —                       |
-| `GEMINI_MODEL`   | Modelo de Gemini                                                   | `gemini-2.5-flash`      |
-| `FRONTEND_URL`   | Orígenes permitidos por CORS, separados por comas                  | `http://localhost:4200` |
-| `JWT_SECRET`     | Secreto para firmar las sesiones. **Obligatorio**: sin él el servidor no arranca | —      |
-| `JWT_EXPIRES_IN` | Duración de la sesión                                              | `7d`                    |
-
-Genera un `JWT_SECRET` con:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-```
+Si `db` o `ia` salen en `false`, revisa `DATABASE_URL` / `DB_SSL` o `GEMINI_API_KEY`. Aunque falle la base de datos, el servidor arranca igual y muestra el error en la consola. Las tablas se crean solas a partir de `schema.sql`.
 
 ## Endpoints
 
-Todos los errores se devuelven como JSON: `{ "error": "mensaje en español" }`. Los errores de validación
-del registro incluyen además `campo` (`nombre`, `email` o `password`).
+| Método | Ruta | Acceso | Qué hace |
+|---|---|---|---|
+| `GET` | `/api/health` | Pública | Estado del servidor, la base y la IA |
+| `POST` | `/api/auth/registro` | Pública | Crea la cuenta y devuelve `{ token, usuario }` |
+| `POST` | `/api/auth/login` | Pública, 10 intentos / 15 min por IP | Devuelve `{ token, usuario }` |
+| `GET` | `/api/auth/yo` | Token | Datos del usuario |
+| `GET` | `/api/items` | Token | Items del usuario |
+| `POST` | `/api/items` | Token | Crea un item |
+| `DELETE` | `/api/items/:id` | Token | Borra un item propio |
+| `POST` | `/api/ia` | Token, 30 / 15 min por usuario | Pregunta a Gemini |
 
-### Autenticación
+El detalle de cada request, response y error está en [docs/api.md](docs/api.md).
 
-| Método | Ruta                 | Cuerpo                                   | Respuesta                                  |
-| ------ | -------------------- | ---------------------------------------- | ------------------------------------------ |
-| `POST` | `/api/auth/registro` | `{ "nombre", "email", "password" }`      | `201 { token, usuario }` · `400` · `409` si el correo existe |
-| `POST` | `/api/auth/login`    | `{ "email", "password" }`                | `200 { token, usuario }` · `401` · `429`   |
-| `GET`  | `/api/auth/yo`       | — (requiere token)                       | `{ usuario }`                              |
+## Documentación
 
-- La contraseña necesita al menos 8 caracteres (máximo 72, el límite de bcrypt). El correo se guarda en minúsculas.
-- Login: 10 intentos cada 15 minutos por IP; después responde `429`.
-- `usuario` nunca incluye `password_hash` ni `google_id`.
-- La tabla `usuarios` ya tiene `google_id`, `avatar_url` y `proveedor` para agregar el login con Google más adelante.
+| Documento | Contenido |
+|---|---|
+| [docs/api.md](docs/api.md) | Cada endpoint con request, response y errores |
+| [docs/base-de-datos.md](docs/base-de-datos.md) | Tablas, columnas, relaciones y consultas |
+| [docs/seguridad.md](docs/seguridad.md) | bcrypt, JWT, CORS, límites de intentos y variables de entorno |
+| [docs/despliegue.md](docs/despliegue.md) | Neon, Render, variables y comprobaciones |
+| [docs/arquitectura-backend.md](docs/arquitectura-backend.md) | Carpetas, middleware y flujo de una petición |
+| [CHANGELOG.md](CHANGELOG.md) | Cambios |
 
-### Rutas protegidas
+## Variables de entorno
 
-Envían el token en la cabecera `Authorization: Bearer <token>`. Sin token válido responden `401`.
+| Variable | Descripción | Por defecto |
+|---|---|---|
+| `PORT` | Puerto del servidor | `3003` |
+| `DATABASE_URL` | Cadena de conexión de PostgreSQL | — |
+| `DB_SSL` | `false` para un PostgreSQL local sin SSL | SSL activado |
+| `GEMINI_API_KEY` | API key de Gemini (solo vive en el backend) | — |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash` |
+| `FRONTEND_URL` | Orígenes permitidos por CORS, separados por comas | `http://localhost:4200` |
+| `JWT_SECRET` | Secreto de las sesiones. **Obligatorio** | — |
+| `JWT_EXPIRES_IN` | Duración de la sesión | `7d` |
 
-| Método   | Ruta             | Cuerpo                                      | Respuesta                               |
-| -------- | ---------------- | ------------------------------------------- | --------------------------------------- |
-| `GET`    | `/api/health`    | — (pública)                                 | `{ ok, db, ia }`                        |
-| `GET`    | `/api/items`     | —                                           | Items **del usuario** (más nuevos primero) |
-| `POST`   | `/api/items`     | `{ "titulo": "...", "descripcion": "..." }` | Item creado (`201`)                     |
-| `DELETE` | `/api/items/:id` | —                                           | `204` · `404` si no existe o es de otro usuario |
-| `POST`   | `/api/ia`        | `{ "pregunta": "..." }`                     | `{ "respuesta": "..." }` · `429` tras 30 preguntas en 15 min |
+## Próximos pasos
 
-Ejemplos:
-
-```bash
-# Registrarse y guardar el token
-TOKEN=$(curl -s -X POST http://localhost:3003/api/auth/registro -H "Content-Type: application/json" \
-  -d '{"nombre":"Ana","email":"ana@ejemplo.com","password":"secreta123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
-
-curl -X POST http://localhost:3003/api/items -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"titulo":"Mi primer registro"}'
-curl -X POST http://localhost:3003/api/ia -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"pregunta":"Hola, ¿quién eres?"}'
-```
-
-## Estructura
-
-```
-src/
-  index.js              arranque, CORS y montaje de rutas
-  db.js                 conexión y creación de tablas (schema.sql)
-  ia.js                 integración con Gemini
-  middleware/auth.js    requireAuth y firma de tokens
-  middleware/limites.js límites de intentos (login e IA)
-  routes/auth.js        registro, login y /yo
-  routes/items.js       CRUD de items filtrado por usuario
-  routes/ia.js          preguntas a la IA
-```
-
-## Desplegar en Render
-
-1. En <https://render.com> crea un **New → Web Service** y conecta este repositorio.
-2. Configura:
-   - **Runtime:** Node
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-3. En **Environment** agrega las variables: `DATABASE_URL`, `GEMINI_API_KEY`, `JWT_SECRET` (uno nuevo, no el de local),
-   `JWT_EXPIRES_IN` (opcional), `GEMINI_MODEL` (opcional)
-   y `FRONTEND_URL` con la URL de Vercel, por ejemplo `https://pow-proyecto3.vercel.app`
-   (puedes dejar también `http://localhost:4200,http://localhost:4203` separados por coma). No hace falta definir `PORT`: Render lo asigna.
-4. Cuando termine, abre `https://TU-SERVICIO.onrender.com/api/health` para comprobarlo y copia esa URL
-   en `src/environments/environment.ts` del frontend.
-
-> En el plan gratuito de Render el servicio se "duerme" tras un rato sin uso; la primera petición puede tardar ~50 s.
-
-## Qué cambiar al adaptar el tema
-
-- **`schema.sql`**: renombra la tabla `items` y sus columnas según tu tema.
-- **`src/routes/items.js`** y el montaje en **`src/index.js`**: actualiza las rutas `/api/items` y las consultas SQL para la nueva tabla/columnas y validaciones (mantén el filtro por `usuario_id`).
-- **`src/ia.js`**: edita la constante `INSTRUCCIONES` para que la IA hable del tema de tu proyecto.
-- **`src/db.js`**: el mensaje de `iniciarDB` si cambias el nombre de la tabla (opcional).
-- **`package.json`** y este **README**: nombre y descripción del proyecto.
+- Reemplazar `items` por `prototipos`, para guardar cada versión del prototipo (orden dictada y HTML resultante) para el historial con deshacer.
+- Cambiar `INSTRUCCIONES` en `src/ia.js` para que devuelva solo HTML y CSS autocontenidos a partir de la orden dictada.
+- Cubrir los pendientes de [docs/seguridad.md](docs/seguridad.md): límite en el registro, cabeceras de seguridad y revocación de tokens.
