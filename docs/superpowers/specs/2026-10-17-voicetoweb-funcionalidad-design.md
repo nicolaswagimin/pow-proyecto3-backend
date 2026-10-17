@@ -191,3 +191,14 @@ La persona describe en voz alta la página que quiere. Gemini la genera y se ve 
 6. **Comandos de voz** resueltos en el navegador, sin gastar cuota.
 7. **`/proyectos`** como página aparte, y guardado automático.
 8. **Variables de entorno:** ninguna nueva. Si en Render `GEMINI_MODEL` tiene otro valor, conviene poner `gemini-3.5-flash-lite` o borrarla. En el `.env` local hoy está `gemini-3.5-flash`.
+
+## Ajustes al aprobar (2026-10-17)
+
+1. **Streaming detrás del proxy de Render.**
+   - El servidor manda cabeceras contra el búfer: `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` y `Connection: keep-alive`, y hace `flushHeaders()`.
+   - Envía un evento `inicio` de inmediato y un `latido` cada 3 s.
+   - **Alternativa automática** sin stream, cuando no llega ningún byte en 12 s, cuando se corta antes del `final` o cuando falla la lectura. El cliente aborta y repite la petición con `?stream=0`; la respuesta es un JSON con el HTML final, y si la primera llegó a terminar en el servidor, sale de la caché.
+   - El progreso se muestra igual: fases («Pidiendo la página…», «Validando…») y, al llegar el HTML, los bloques aparecen en orden.
+   - Se prueba localmente detrás de un proxy que almacena todo en búfer, y en Render después del push.
+2. **Voz en español de Colombia** (`es-CO`) por defecto, con un selector de otras variantes (México, España, Argentina, Chile, Perú, Estados Unidos) que se recuerda en `localStorage`.
+3. **`GEMINI_MODEL=gemini-3.5-flash-lite`** también en el `.env` local.
