@@ -6,9 +6,13 @@ Proyecto 3 de la materia Programación orientada a la web. Node.js + Express 5, 
 
 Frontend: <https://github.com/nicolaswagimin/pow-proyecto3-frontend>
 
-## Estado actual
+## Qué hace
 
-Funcionan el registro y el login con JWT, un CRUD de ejemplo (`items`) filtrado por usuario y una ruta de preguntas a Gemini. La función propia de VoiceToWeb todavía no está en la API: Gemini convertirá cada orden dictada en HTML y CSS, o en un cambio sobre la versión anterior. Ese es el siguiente paso (ver "Próximos pasos").
+- **Genera páginas** a partir de una orden hablada o escrita. Gemini devuelve un solo HTML con su CSS, que llega en **stream** para que el navegador lo arme en vivo, o como JSON si un proxy retiene el stream.
+- **Las edita** con nuevas órdenes: la página entera si es chica, o solo las secciones afectadas si es grande.
+- **Valida** cada página con Zod (sin JavaScript, tamaño máximo) y reintenta una vez.
+- **No repite llamadas:** la misma orden sobre el mismo HTML sale de la caché.
+- **Guarda proyectos** por usuario con todas sus versiones, en árbol.
 
 ## Requisitos
 
@@ -36,12 +40,21 @@ Si `db` o `ia` salen en `false`, revisa `DATABASE_URL` / `DB_SSL` o `GEMINI_API_
 | `POST` | `/api/auth/registro` | Pública | Crea la cuenta y devuelve `{ token, usuario }` |
 | `POST` | `/api/auth/login` | Pública, 10 intentos / 15 min por IP | Devuelve `{ token, usuario }` |
 | `GET` | `/api/auth/yo` | Token | Datos del usuario |
-| `GET` | `/api/items` | Token | Items del usuario |
-| `POST` | `/api/items` | Token | Crea un item |
-| `DELETE` | `/api/items/:id` | Token | Borra un item propio |
-| `POST` | `/api/ia` | Token, 30 / 15 min por usuario | Pregunta a Gemini |
+| `POST` | `/api/paginas/generar` | Token, 20 / 15 min | Genera una página (stream NDJSON; `?stream=0` para JSON) |
+| `POST` | `/api/paginas/editar` | Token, comparte el límite | Edita una página con una orden |
+| `GET`, `POST` | `/api/proyectos` | Token | Lista o crea proyectos |
+| `GET`, `PATCH`, `DELETE` | `/api/proyectos/:id` | Token | Abre (con todas sus versiones), renombra o borra |
+| `POST` | `/api/proyectos/:id/versiones` | Token | Agrega una versión |
 
-El detalle de cada request, response y error está en [docs/api.md](docs/api.md).
+El detalle de cada request, response, evento y error está en [docs/api.md](docs/api.md).
+
+## Pruebas
+
+```bash
+npm test                 # 53 pruebas con node:test
+```
+
+Gemini, la caché, la red y la base se reemplazan por dobles: las pruebas no gastan cuota ni tocan Neon.
 
 ## Documentación
 
@@ -49,8 +62,10 @@ El detalle de cada request, response y error está en [docs/api.md](docs/api.md)
 |---|---|
 | [docs/api.md](docs/api.md) | Cada endpoint con request, response y errores |
 | [docs/base-de-datos.md](docs/base-de-datos.md) | Tablas, columnas, relaciones y consultas |
-| [docs/seguridad.md](docs/seguridad.md) | bcrypt, JWT, CORS, límites de intentos y variables de entorno |
-| [docs/despliegue.md](docs/despliegue.md) | Neon, Render, variables y comprobaciones |
+| [docs/ia.md](docs/ia.md) | Prompts de generación y edición, validación, secciones, caché y límites |
+| [docs/seguridad.md](docs/seguridad.md) | bcrypt, JWT, CORS, límites, páginas generadas y variables de entorno |
+| [docs/decisiones/](docs/decisiones) | ADRs: stream con alternativa, edición por secciones, caché, items |
+| [docs/despliegue.md](docs/despliegue.md) | Neon, Render, variables, cómo comprobar el stream y comprobaciones |
 | [docs/arquitectura-backend.md](docs/arquitectura-backend.md) | Carpetas, middleware y flujo de una petición |
 | [CHANGELOG.md](CHANGELOG.md) | Cambios |
 
@@ -62,13 +77,11 @@ El detalle de cada request, response y error está en [docs/api.md](docs/api.md)
 | `DATABASE_URL` | Cadena de conexión de PostgreSQL | — |
 | `DB_SSL` | `false` para un PostgreSQL local sin SSL | SSL activado |
 | `GEMINI_API_KEY` | API key de Gemini (solo vive en el backend) | — |
-| `GEMINI_MODEL` | Modelo de Gemini | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Modelo de Gemini | `gemini-3.5-flash-lite` |
 | `FRONTEND_URL` | Orígenes permitidos por CORS, separados por comas | `http://localhost:4200` |
 | `JWT_SECRET` | Secreto de las sesiones. **Obligatorio** | — |
 | `JWT_EXPIRES_IN` | Duración de la sesión | `7d` |
 
-## Próximos pasos
+## Pendientes conocidos
 
-- Reemplazar `items` por `prototipos`, para guardar cada versión del prototipo (orden dictada y HTML resultante) para el historial con deshacer.
-- Cambiar `INSTRUCCIONES` en `src/ia.js` para que devuelva solo HTML y CSS autocontenidos a partir de la orden dictada.
-- Cubrir los pendientes de [docs/seguridad.md](docs/seguridad.md): límite en el registro, cabeceras de seguridad y revocación de tokens.
+Los de [docs/seguridad.md](docs/seguridad.md): límite en el registro, cabeceras de seguridad y revocación de tokens.
