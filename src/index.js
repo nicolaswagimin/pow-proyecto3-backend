@@ -4,10 +4,10 @@ import cors from 'cors';
 import { iniciarDB, dbDisponible } from './db.js';
 import { iaDisponible } from './ia.js';
 import { requireAuth } from './middleware/auth.js';
-import { limiteIA } from './middleware/limites.js';
+import { limiteIA, limiteProyectos } from './middleware/limites.js';
 import authRouter from './routes/auth.js';
-import itemsRouter from './routes/items.js';
-import iaRouter from './routes/ia.js';
+import { rutasPaginas } from './routes/paginas.js';
+import { rutasProyectos } from './routes/proyectos.js';
 
 const PORT = process.env.PORT || 3003;
 
@@ -38,7 +38,8 @@ app.use(
     },
   }),
 );
-app.use(express.json());
+// Las versiones traen la página (hasta 150 000 caracteres).
+app.use(express.json({ limit: '1mb' }));
 
 // ---------- Estado ----------
 app.get('/api/health', async (req, res) => {
@@ -49,8 +50,8 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', authRouter);
 
 // ---------- Rutas protegidas ----------
-app.use('/api/items', requireAuth, itemsRouter);
-app.use('/api/ia', requireAuth, limiteIA, iaRouter);
+app.use('/api/paginas', requireAuth, limiteIA, rutasPaginas());
+app.use('/api/proyectos', requireAuth, limiteProyectos, rutasProyectos());
 
 // ---------- Errores ----------
 app.use('/api', (req, res) => {
@@ -75,5 +76,5 @@ app.listen(PORT, () => {
 
 // Si la BD falla, el servidor sigue levantado y solo se muestra el error.
 iniciarDB()
-  .then(() => console.log('Base de datos lista (tablas usuarios e items verificadas).'))
+  .then(() => console.log('Base de datos lista (usuarios, proyectos, versiones e ia_cache).'))
   .catch((err) => console.error('No se pudo iniciar la base de datos:', err.message));
