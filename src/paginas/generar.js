@@ -53,6 +53,16 @@ function validar(esquema, valor) {
   return r.data;
 }
 
+// Para las rutas: valida antes de abrir el stream, así un error de entrada es un 400 normal.
+export function validarEntradaGenerar({ orden } = {}) {
+  validar(esquemaOrden, orden);
+}
+
+export function validarEntradaEditar({ html, orden } = {}) {
+  validar(esquemaHtml, html);
+  validar(esquemaOrden, orden);
+}
+
 const DEPS = { stream: streamGemini, llamar: llamarGemini, cache: cacheBD };
 
 const final = (html, desdeCache, modo) => ({ tipo: 'final', html, titulo: tituloDe(html), desdeCache, modo });
