@@ -140,8 +140,3 @@ export async function* streamGemini({
     throw new ErrorIA('La conexión con la IA se cortó. Inténtalo de nuevo.', 502);
   }
 }
-
-// La caja genérica de preguntas (se elimina junto con su ruta).
-export async function preguntarIA(pregunta) {
-  return llamarGemini({ sistema: 'Responde en español, de forma clara y breve.', usuario: pregunta });
-}
