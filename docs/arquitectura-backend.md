@@ -5,19 +5,29 @@ Node.js 20+ con Express 5, módulos ES, PostgreSQL con `pg` y Gemini por su API 
 ## Carpetas
 
 ```
-schema.sql               tablas usuarios e items (idempotente, se ejecuta al arrancar)
+schema.sql               tablas usuarios, proyectos, versiones e ia_cache (idempotente, se ejecuta al arrancar)
 .env.example             variables de entorno sin valores
 src/
-  index.js               arranque: comprueba JWT_SECRET, CORS, JSON, rutas y manejo de errores
+  index.js               arranque: comprueba JWT_SECRET, CORS, JSON (1 MB), rutas y manejo de errores
   db.js                  pool de PostgreSQL, iniciarDB() y dbDisponible()
-  ia.js                  preguntarIA() contra Gemini e INSTRUCCIONES del asistente
+  ia.js                  streamGemini() (SSE), llamarGemini() y ErrorIA con el código para el cliente
+  ia/
+    cache.js             clave SHA-256 estable, orden normalizada, lectura y escritura en ia_cache
+  paginas/
+    prompts.js           prompts de generar, editar, elegir secciones y editar secciones (VERSION_PROMPT)
+    validar.js           validarPagina() con Zod y tituloDe()
+    secciones.js         bloques data-vtw con parse5: índice, estilos, aplicar cambios y sus esquemas
+    generar.js           generar() y editar() como eventos: caché → Gemini → validación → un reintento
+  proyectos/
+    repositorio.js       consultas de proyectos y versiones, siempre por usuario
   middleware/
     auth.js              requireAuth, firmarToken y COLUMNAS_PUBLICAS
-    limites.js           limiteLogin (por IP) y limiteIA (por usuario)
+    limites.js           limiteLogin (IP), limiteIA (20/15 min) y limiteProyectos (120/15 min)
   routes/
     auth.js              /registro, /login y /yo
-    items.js             CRUD de items filtrado por usuario
-    ia.js                pregunta a la IA
+    paginas.js           /generar y /editar en stream NDJSON, o JSON con ?stream=0
+    proyectos.js         CRUD de proyectos y /:id/versiones, con Zod
+test/                    node:test con Gemini, caché, red y base simulados
 ```
 
 ## Middleware, en orden
@@ -26,30 +36,33 @@ src/
 |---|---|---|---|
 | 1 | `trust proxy` (1) | Todo | `req.ip` es la IP real detrás del proxy de Render |
 | 2 | `cors` | Todo | Solo los orígenes de `FRONTEND_URL`; sin `Origin` se permite |
-| 3 | `express.json()` | Todo | Lee el cuerpo JSON (hasta 100 kB) |
+| 3 | `express.json({ limit: '1mb' })` | Todo | Lee el cuerpo JSON (las versiones traen la página) |
 | 4 | `limiteLogin` | `POST /api/auth/login` | 10 intentos cada 15 min por IP |
-| 5 | `requireAuth` | `/api/items`, `/api/ia`, `/api/auth/yo` | Verifica el JWT y carga `req.usuario` desde la base |
-| 6 | `limiteIA` | `/api/ia` (después de `requireAuth`) | 30 preguntas cada 15 min por usuario |
+| 5 | `requireAuth` | `/api/paginas`, `/api/proyectos`, `/api/auth/yo` | Verifica el JWT y carga `req.usuario` desde la base |
+| 6 | `limiteIA` / `limiteProyectos` | `/api/paginas` / `/api/proyectos` | 20 / 120 cada 15 min por usuario |
 | 7 | 404 de `/api` | Rutas no encontradas | `{ "error": "Ruta no encontrada." }` |
 | 8 | Manejador de errores | Todo | JSON mal formado → `400`; cualquier otro → `500` sin detalles |
 
-## Flujo de una petición protegida
-
-Ejemplo: `POST /api/items` con `{ "titulo": "…" }`.
+## Flujo de una generación en stream
 
 ```
-Navegador ──► CORS ──► express.json ──► requireAuth ──► routes/items.js ──► PostgreSQL
-   ▲            │            │              │                 │                 │
-   │       origen no      JSON mal      sin token o       título vacío       error
-   │       permitido      formado       inválido → 401    → 400              → 500
-   │                      → 400
-   └──────────── 201 { id, titulo, descripcion, creado_en, usuario_id } ◄──────┘
+Navegador ── POST /api/paginas/generar { orden } ──► requireAuth → limiteIA → validar la orden (400 antes del stream)
+   │◄── 200 application/x-ndjson, sin búfer ── {"tipo":"inicio"} y un latido cada 3 s
+   │
+   │        generar(): ia_cache? ── sí ──► {"tipo":"final", desdeCache: true}
+   │                       │ no
+   │                       ▼
+   │        streamGemini (SSE) ── cada trozo ──► {"tipo":"parcial","trozo":…}
+   │                       ▼
+   │        validarPagina (Zod) ── no ──► {"tipo":"reintento"} y una vez más con los errores ── no ──► {"tipo":"error","estado":502}
+   │                       │ sí
+   │                       ▼
+   │◄──────── ia_cache ──► {"tipo":"final", html, titulo, desdeCache: false}
+   │
+   └── POST /api/proyectos o /api/proyectos/:id/versiones con la página (guardado automático)
 ```
 
-1. CORS compara el `Origin` con la lista de `FRONTEND_URL`.
-2. `express.json()` convierte el cuerpo; si no es JSON válido, el manejador de errores responde `400`.
-3. `requireAuth` separa `Bearer <token>`, lo verifica con `JWT_SECRET` (solo `HS256`) y busca al usuario por `sub`. Si algo falla responde `401`; si la base falla, `500`.
-4. La ruta valida el título, inserta con `usuario_id = req.usuario.id` y responde `201`.
+Si el cliente cierra la conexión, el bucle deja de leer de Gemini. Con `?stream=0` se recorren los mismos eventos y solo se responde el `final` como JSON (la alternativa del frontend cuando un proxy retiene el stream).
 
 ## Flujo de un login
 
@@ -67,6 +80,8 @@ Navegador ──► CORS ──► express.json ──► requireAuth ──► 
 
 ## IA
 
-`src/ia.js` llama a `generativelanguage.googleapis.com/v1beta/models/<modelo>:generateContent` con `systemInstruction` (la constante `INSTRUCCIONES`) y la pregunta del usuario. Une las partes de texto de la primera respuesta. Cualquier fallo se convierte en un `Error` con mensaje en español que la ruta devuelve como `502`.
+Ver [ia.md](ia.md): prompts, validación, edición por secciones de páginas grandes, caché y límites.
 
-Hoy `INSTRUCCIONES` es un asistente general. Para VoiceToWeb, Gemini convertirá cada orden dictada en HTML y CSS, o en un cambio sobre la versión anterior; las instrucciones deberán pedir que devuelva solo HTML y CSS autocontenidos a partir de la orden dictada.
+## Pruebas
+
+`npm test` (53 pruebas con `node:test`). Gemini, la caché, la red y la base se reemplazan por dobles: no gastan cuota ni tocan Neon. Las rutas se prueban levantando una app Express en un puerto libre.
