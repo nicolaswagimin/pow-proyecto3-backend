@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );
 
 -- La tabla items era el CRUD de ejemplo: ya no se crea, pero tampoco se borra para no perder
--- datos de bases existentes (docs/decisiones/0004). Para eliminarla: DROP TABLE IF EXISTS items;
+-- datos de bases existentes (docs/decisiones/0004). Cómo eliminarla a mano: docs/base-de-datos.md.
 
 -- Proyectos: cada página que la persona arma por voz, con su nombre.
 CREATE TABLE IF NOT EXISTS proyectos (
