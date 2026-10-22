@@ -73,7 +73,7 @@ export function estilosDe(html) {
 
 export class ErrorSecciones extends Error {}
 
-// Aplica los cambios de Gemini como reemplazos de texto, de atrás hacia adelante.
+// Aplica los cambios de Gemini como reemplazos de texto sobre el HTML original.
 export function aplicarSecciones(html, { secciones = [], nuevas = [], estilos } = {}) {
   const bloques = new Map(bloquesDe(html).map((b) => [b.id, b]));
   const reemplazos = [];
@@ -91,11 +91,17 @@ export function aplicarSecciones(html, { secciones = [], nuevas = [], estilos } 
     const e = estilosDe(html);
     if (e) reemplazos.push({ inicio: e.inicio, fin: e.fin, texto: estilos });
   }
-  // Primero los que empiezan más tarde; a igual inicio, primero el reemplazo y luego la inserción.
-  reemplazos.sort((a, b) => b.inicio - a.inicio || a.fin - b.fin);
-  let salida = html;
-  for (const r of reemplazos) salida = salida.slice(0, r.inicio) + r.texto + salida.slice(r.fin);
-  return salida;
+  // La salida se arma de izquierda a derecha sobre el HTML original, así ningún rango se mueve.
+  // A igual inicio, las inserciones (vacías, al final del bloque anterior) van antes que el
+  // reemplazo del bloque siguiente; entre inserciones se respeta el orden de Gemini (sort estable).
+  reemplazos.sort((a, b) => a.inicio - b.inicio || (b.inicio === b.fin) - (a.inicio === a.fin));
+  let salida = '';
+  let cursor = 0;
+  for (const r of reemplazos) {
+    salida += html.slice(cursor, r.inicio) + r.texto;
+    cursor = r.fin;
+  }
+  return salida + html.slice(cursor);
 }
 
 const CODIGO = /<script[\s>/]|\son[a-z]+\s*=|javascript\s*:/i;

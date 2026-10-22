@@ -48,6 +48,20 @@ test('aplicarSecciones reemplaza, agrega y cambia estilos sin tocar el resto', (
   assert.deepEqual(bloquesDe(nuevo).map((b) => b.id), ['encabezado', 'menu', 'contacto', 'pie']);
 });
 
+test('aplicarSecciones no corrompe bloques pegados y respeta el orden de varias nuevas', () => {
+  const pegado = '<!DOCTYPE html><html><head><title>x</title></head><body>'
+    + '<section data-vtw="a">A</section><section data-vtw="b">B</section></body></html>';
+  const nuevo = aplicarSecciones(pegado, {
+    secciones: [{ id: 'b', html: '<section data-vtw="b">B2</section>' }],
+    nuevas: [
+      { despuesDe: 'a', html: '<section data-vtw="n1">N1</section>' },
+      { despuesDe: 'a', html: '<section data-vtw="n2">N2</section>' },
+    ],
+  });
+  assert.match(nuevo, /<section data-vtw="a">A<\/section><section data-vtw="n1">N1<\/section><section data-vtw="n2">N2<\/section><section data-vtw="b">B2<\/section><\/body>/);
+  assert.deepEqual(bloquesDe(nuevo).map((b) => b.id), ['a', 'n1', 'n2', 'b']);
+});
+
 test('aplicarSecciones rechaza ids que no existen', () => {
   assert.throws(() => aplicarSecciones(HTML, { secciones: [{ id: 'nada', html: '<p>x</p>' }] }), /nada/);
   assert.throws(() => aplicarSecciones(HTML, { nuevas: [{ despuesDe: 'nada', html: '<p>x</p>' }] }), /nada/);
