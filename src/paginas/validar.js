@@ -24,7 +24,10 @@ export const esquemaPagina = z
   .refine((h) => /^(<!DOCTYPE html>|<html[\s>])/i.test(h), 'La respuesta debe empezar con <!DOCTYPE html>.')
   .refine((h) => /<\/html>\s*$/i.test(h), 'La respuesta debe terminar con </html>.')
   .refine((h) => /<body[\s>]/i.test(h) && /<\/body>/i.test(h), 'La página necesita un <body>.')
-  .refine((h) => !/<script[\s>/]/i.test(h), 'La página no puede llevar JavaScript (<script>).');
+  .refine((h) => !/<script[\s>/]/i.test(h), 'La página no puede llevar JavaScript (<script>).')
+  // Solo dentro de etiquetas: «online = 24 h» en el texto no es código.
+  .refine((h) => !/<[a-z][^>]*\son[a-z]+\s*=/i.test(h), 'La página no puede llevar atributos on* (onclick, onerror…).')
+  .refine((h) => !/<[a-z][^>]*=\s*["']?\s*javascript\s*:/i.test(h), 'La página no puede llevar enlaces javascript:.');
 
 export function validarPagina(texto) {
   const html = limpiarRespuesta(String(texto ?? ''));

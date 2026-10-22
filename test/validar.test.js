@@ -39,6 +39,13 @@ test('rechaza una página con JavaScript', () => {
   assert.equal(validarPagina(pagina('<SCRIPT src="x.js"></SCRIPT>')).ok, false);
 });
 
+test('rechaza atributos on* y javascript: dentro de etiquetas, pero no en el texto', () => {
+  assert.equal(validarPagina(pagina('<img src="x.png" onerror="alert(1)">')).ok, false);
+  assert.equal(validarPagina(pagina('<template shadowrootmode="open"><img ONERROR=alert(1)></template>')).ok, false);
+  assert.equal(validarPagina(pagina('<a href="javascript:alert(1)">x</a>')).ok, false);
+  assert.equal(validarPagina(pagina('<p>Atención online = 24 horas; javascript: no se usa aquí.</p>')).ok, true);
+});
+
 test('tituloDe lee el <title> o devuelve null', () => {
   assert.equal(tituloDe(pagina()), 'Café Pasto');
   assert.equal(tituloDe('<html><body></body></html>'), null);
