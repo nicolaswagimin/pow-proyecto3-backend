@@ -51,7 +51,7 @@ El detalle de cada request, response, evento y error está en [docs/api.md](docs
 ## Pruebas
 
 ```bash
-npm test                 # 53 pruebas con node:test
+npm test                 # 55 pruebas con node:test
 ```
 
 Gemini, la caché, la red y la base se reemplazan por dobles: las pruebas no gastan cuota ni tocan Neon.

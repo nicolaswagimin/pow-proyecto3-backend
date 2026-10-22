@@ -84,4 +84,4 @@ Ver [ia.md](ia.md): prompts, validación, edición por secciones de páginas gra
 
 ## Pruebas
 
-`npm test` (53 pruebas con `node:test`). Gemini, la caché, la red y la base se reemplazan por dobles: no gastan cuota ni tocan Neon. Las rutas se prueban levantando una app Express en un puerto libre.
+`npm test` (55 pruebas con `node:test`). Gemini, la caché, la red y la base se reemplazan por dobles: no gastan cuota ni tocan Neon. Las rutas se prueban levantando una app Express en un puerto libre.

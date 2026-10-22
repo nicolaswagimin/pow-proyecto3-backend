@@ -45,7 +45,7 @@ Al pasarlo responden `429` con un mensaje en español y las cabeceras estándar 
 
 Lo que devuelve Gemini es **dato no confiable**, aunque el prompt pida que no haya JavaScript.
 
-1. **En el servidor:** `validarPagina` rechaza cualquier página con `<script>`, y la edición por secciones rechaza bloques con `<script>`, `on*` o `javascript:`. Lo que no pasa se reintenta una vez y después es `502`, sin guardarse.
+1. **En el servidor:** `validarPagina` rechaza cualquier página con `<script>`, atributos `on*` o enlaces `javascript:` dentro de etiquetas, y la edición por secciones rechaza bloques con `<script>`, `on*` o `javascript:`. Lo que no pasa se reintenta una vez y después es `502`, sin guardarse.
 2. **En el navegador** (`vista-previa/sanear.ts` del frontend, ver su `vista-previa.md`):
    - un saneado a punto fijo quita scripts, marcos, objetos, `<base>`, meta refresh, `on*`, `srcdoc`, `formaction`, URLs `javascript:` y CSS que ejecuta código, y deja solo las hojas de Google Fonts;
    - la vista previa es un iframe con `sandbox=""`, **sin ningún permiso**: ni scripts, ni mismo origen, ni formularios, ni ventanas, ni navegación;
